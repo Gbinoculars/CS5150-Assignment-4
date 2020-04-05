@@ -1,0 +1,12 @@
+﻿  Controller_AI_JiaqiangGuo.cpp
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(212,27): warning C4018: '<': signed/unsigned mismatch
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(228,27): warning C4018: '<': signed/unsigned mismatch
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(236,23): warning C4018: '<': signed/unsigned mismatch
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(243,23): warning C4018: '<': signed/unsigned mismatch
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(303,31): warning C4018: '<': signed/unsigned mismatch
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(321,27): warning C4018: '<': signed/unsigned mismatch
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(276): warning C4715: 'Controller_AI_JiaqiangGuo::findBestPos': not all control paths return a value
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(330): warning C4715: 'Controller_AI_JiaqiangGuo::chooseCardBasedOnStrategy': not all control paths return a value
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.cpp(342): warning C4715: 'Controller_AI_JiaqiangGuo::combinationStrategy': not all control paths return a value
+E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Controller_AI_JiaqiangGuo\src\Controller_AI_JiaqiangGuo.h(89): warning C4172: returning address of local variable or temporary: newMob
+  Controller_AI_JiaqiangGuo.vcxproj -> E:\ChormeDownload\cs5150 AI\CrashLoyal-master finalProject\CrashLoyal-master\Debug\Controller_AI_JiaqiangGuo.lib
