@@ -33,14 +33,15 @@
 #include <string>
 #include <cmath>
 
-//static const Vec2 ksGiantPos(LEFT_BRIDGE_CENTER_X, RIVER_TOP_Y - 0.5f);
-//static const Vec2 ksArcherPos(LEFT_BRIDGE_CENTER_X, 0.f);
-//static const Vec2 ksSwordsmanPos()
+
+
 const float E = 2.718f;
 int updateCD;
 int placeTime;
 
 Controller_AI_JiaqiangGuo::Controller_AI_JiaqiangGuo() {
+    //In the beginning, tipically the player who first place mob will under disadvantageous position.
+    //So wait 100 frames, if enemy still has no mobs, the AI will attack first.
     updateCD = 100;
 }
 
@@ -49,38 +50,42 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
 {   
     assert(m_pPlayer);
     
-    std::vector<iEntityStats::MobType> currentCardPool = { iEntityStats::MobType::Giant,iEntityStats::MobType::Archer ,iEntityStats::MobType::Swordsman };
+    std::vector<iEntityStats::MobType> currentCardPool = m_pPlayer->GetAvailableMobTypes();
 
     updateCD--;
-    
-    state currentState = WaitForElixirs;
+   
     bool isNorth = m_pPlayer->isNorth();
     int enemyMobsNum = m_pPlayer->getNumOpponentMobs();
     int enemyBuildingNum = m_pPlayer->getNumOpponentBuildings();
-
+    int ourMobNum = m_pPlayer->getNumMobs();
     float elixirs = m_pPlayer->getElixir();
 
+    //default wait for elixirs
+    overallStrategies currentState = WaitForElixirs;
     if (elixirs >= 10 && updateCD<=0) {
         currentState = currentState < Attacking ? currentState : Attacking;
     }
-
-    if (enemyMobsNum ) {
+    if (enemyMobsNum) {
         currentState = currentState < TargetEnemyMobs ? currentState : TargetEnemyMobs;
     }
+    if (ourMobNum) {
+        currentState = currentState < SupportOurMobs ? currentState : SupportOurMobs;
+    }
 
+    //get info of enemybuilding
     std::map<combatStrategyCatagory, strategies> sts;
     enemyBuildings.clear();
     for (int i = 0; i < enemyBuildingNum; i++) {
         iPlayer::EntityData data = m_pPlayer->getOpponentBuilding(i);
-        if (data.m_Position.x == PrincessLeftX ) {
+        if (data.m_Position.Player2Game(isNorth).x == PrincessLeftX ) {
             mobsData building(data, 0.f, i, LeftTower,sts);
             enemyBuildings.push_back(building);
         }
-        if (data.m_Position.x == PrincessRightX) {
+        if (data.m_Position.Player2Game(isNorth).x == PrincessRightX) {
             mobsData building(data, 0.f, i,RightTower,sts);
             enemyBuildings.push_back(building);
         }
-        if (data.m_Position.x == KingX) {
+        if (data.m_Position.Player2Game(isNorth).x == KingX) {
             mobsData building(data, 0.f, i, KingTower,sts);
             enemyBuildings.push_back(building);
         }
@@ -106,16 +111,18 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
         else iter++;
     }
     
-
+    //choose the overall combat strategies
     switch (currentState)
     {
+    //combat enemyMobs
     case TargetEnemyMobs: {
         
+        //update mobs info
         leftEnemyMobs.clear();
         rightEnemyMobs.clear();
         for (int i = 0; i < enemyMobsNum; i++) {
             iPlayer::EntityData data = m_pPlayer->getOpponentMob(i);
-            if (data.m_Position.x < 9) {
+            if (data.m_Position.Player2Game(isNorth).x < 9) {
                 mobsData mobData(data, 0.f, i,Mob,sts);
                 leftEnemyMobs.push_back(mobData);
             }
@@ -126,7 +133,7 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
         }
         
         mobsData* finalPriorityMob = NULL;
-        finalPriorityMob = findPriorityMob(finalPriorityMob);
+        finalPriorityMob = findPriorityMob(finalPriorityMob,isNorth);
        
 
         if (finalPriorityMob) { 
@@ -135,9 +142,9 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
                 deltaY = 6.f;
             }
             if(finalPriorityMob->data.m_Stats.getDamageType() == iEntityStats::DamageType::Ranged) {
-                deltaY = -0.5f;
+                deltaY = 0.5f;
             }
-            if (finalPriorityMob->data.m_Position.y <= RIVER_TOP_Y - deltaY) {
+            if (finalPriorityMob->data.m_Position.Player2Game(isNorth).y <= RIVER_TOP_Y - deltaY) {
                 chooseMeleeOrRemote(finalPriorityMob);
                 int cardIndex = 0;
                 cardIndex = chooseCardBasedOnStrategy(finalPriorityMob, currentCardPool, cardIndex);
@@ -146,19 +153,24 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
                 iPlayer::PlacementResult result0 = iPlayer::PlacementResult::MobTypeUnavailable;
                 iPlayer::PlacementResult result1 = iPlayer::PlacementResult::MobTypeUnavailable;
                 if (combineMt != currentCardPool[cardIndex]) {
-                    Vec2 pos0 = findBestPos(finalPriorityMob, combineMt);
+                    Vec2 pos0 = findBestPos(finalPriorityMob, combineMt,isNorth);
                     result0 = placeMob(pos0, isNorth, combineMt);
                 }
-                Vec2 pos1 = findBestPos(finalPriorityMob, currentCardPool[cardIndex]);
+                Vec2 pos1 = findBestPos(finalPriorityMob, currentCardPool[cardIndex],isNorth);
                 result1 = placeMob(pos1, isNorth, currentCardPool[cardIndex]);
                 if (result0 == iPlayer::PlacementResult::Success || result1 == iPlayer::PlacementResult::Success) {
                     alreadyAttakedMob.push_back(finalPriorityMob->id);
+                    std::vector<iEntityStats::MobType> mts;
+                    mts.push_back(currentCardPool[cardIndex]);
+                    mts.push_back(combineMt);
+                    speaker(finalPriorityMob, mts, isNorth);
                 }
             }
         }
              
         break;
     }
+    //combat enemy towewr based on the strategies preseted.
     case Attacking: {
         float max = 0;
         mobsData* finalTarget = NULL;
@@ -182,10 +194,16 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
                 bool success = placeMobStategy0(PrincessRightX, RIVER_TOP_Y, isNorth);
             }
         }
-        
+       
+        break;
+    }
+    //if our mobs elinimated enemyMobs how to expand advaantages
+    case SupportOurMobs: {
+
         break;
     }
     case WaitForElixirs: {
+
         break;
     }
     default:
@@ -193,7 +211,7 @@ void Controller_AI_JiaqiangGuo::tick(float deltaTSec)
     }
 }
 
-Controller_AI_JiaqiangGuo::mobsData* Controller_AI_JiaqiangGuo::findPriorityMob(mobsData* mobPriority) {
+Controller_AI_JiaqiangGuo::mobsData* Controller_AI_JiaqiangGuo::findPriorityMob(mobsData* mobPriority,bool isNorth) {
     
     if (updateCD <= 0) {
         alreadyAttakedMob.clear();
@@ -204,7 +222,7 @@ Controller_AI_JiaqiangGuo::mobsData* Controller_AI_JiaqiangGuo::findPriorityMob(
         float healthScore;
         float positionScore;
         float attackScore;
-        float x = ((iter->data.m_Position.y - NorthPrincessY) - 5.f);
+        float x = ((iter->data.m_Position.Player2Game(isNorth).y - NorthPrincessY) -5.0f);
         healthScore = float(iter->data.m_Health) / float(iter->data.m_Stats.getMaxHealth());
         positionScore = 1.f - (1.f / (1.f + pow(E, -(x))));
         attackScore = iter->data.m_Stats.getDamage() / 1000.f;
@@ -220,7 +238,7 @@ Controller_AI_JiaqiangGuo::mobsData* Controller_AI_JiaqiangGuo::findPriorityMob(
         float healthScore;
         float positionScore;
         float attackScore;
-        float x = ((iter->data.m_Position.y - NorthPrincessY) - 5.f);
+        float x = ((iter->data.m_Position.Player2Game(isNorth).y - NorthPrincessY) - 5.0f);
         healthScore = float(iter->data.m_Health) / float(iter->data.m_Stats.getMaxHealth());
         positionScore = 1.f - (1.f / (1.f + pow(E, -(x))));
         attackScore = iter->data.m_Stats.getDamage() / 1000.f;
@@ -231,6 +249,7 @@ Controller_AI_JiaqiangGuo::mobsData* Controller_AI_JiaqiangGuo::findPriorityMob(
             }
         }
     }
+
 
     float max = 0;
     for (int i = 0; i < leftEnemyMobs.size(); i++) {
@@ -250,24 +269,24 @@ Controller_AI_JiaqiangGuo::mobsData* Controller_AI_JiaqiangGuo::findPriorityMob(
     return mobPriority;
 }
 
-Vec2 Controller_AI_JiaqiangGuo::findBestPos(mobsData* enemyMob,iEntityStats::MobType theMobWantPlace) {
+Vec2 Controller_AI_JiaqiangGuo::findBestPos(mobsData* enemyMob,iEntityStats::MobType theMobWantPlace,bool isNorth) {
     if (iEntityStats::getStats(theMobWantPlace).getDamageType() == iEntityStats::DamageType::Melee) {
-        return enemyMob->data.m_Position;
+        return enemyMob->data.m_Position.Player2Game(isNorth);
     }
     
     if (iEntityStats::getStats(theMobWantPlace).getDamageType() == iEntityStats::DamageType::Ranged) {
-        if (enemyMob->data.m_Position.y - 6.5f > 0.0f) {
-            Vec2 pos(enemyMob->data.m_Position.x, enemyMob->data.m_Position.y - 6.5f);
+        if (enemyMob->data.m_Position.Player2Game(isNorth).y - 6.5f > 0.0f) {
+            Vec2 pos(enemyMob->data.m_Position.Player2Game(isNorth).x, enemyMob->data.m_Position.Player2Game(isNorth).y - 6.5f);
             return pos;
         }
         else {
-            float daltaY = abs(enemyMob->data.m_Position.y - 7.0f);
-            if (enemyMob->data.m_Position.x - daltaY > 0) {
-                Vec2 pos(enemyMob->data.m_Position.x - daltaY, enemyMob->data.m_Position.y - 7.0f + daltaY);
+            float daltaY = abs(enemyMob->data.m_Position.Player2Game(isNorth).y - 7.0f);
+            if (enemyMob->data.m_Position.Player2Game(isNorth).x - daltaY > 0) {
+                Vec2 pos(enemyMob->data.m_Position.Player2Game(isNorth).x - daltaY, enemyMob->data.m_Position.Player2Game(isNorth).y - 7.0f + daltaY);
                 return pos;
             }
             else {
-                Vec2 pos(enemyMob->data.m_Position.x + daltaY, enemyMob->data.m_Position.y - 7.0f + daltaY);
+                Vec2 pos(enemyMob->data.m_Position.Player2Game(isNorth).x + daltaY, enemyMob->data.m_Position.Player2Game(isNorth).y - 7.0f + daltaY);
                 return pos;
             }
         }
@@ -277,17 +296,25 @@ Vec2 Controller_AI_JiaqiangGuo::findBestPos(mobsData* enemyMob,iEntityStats::Mob
 
 iPlayer::PlacementResult Controller_AI_JiaqiangGuo::placeMob(Vec2 pos, bool isNorth, iEntityStats::MobType mt) {
     Vec2 pos_Game = pos.Player2Game(isNorth);
+    
     return m_pPlayer->placeMob(mt, pos_Game);
 }
 
 
 bool Controller_AI_JiaqiangGuo::placeMobStategy0(float posX, float posY, bool isNorth) {
     Vec2 pos(posX, posY - 0.5f);
-    iPlayer::PlacementResult result0 = placeMob(pos, isNorth, buildingAttackMobs[0]);
+    iPlayer::PlacementResult result0 = placeMob(pos, isNorth, bigCardPool[0]);
     pos.x = posX;
-    pos.y = posY - 7.5f; 
-    iPlayer::PlacementResult result1 = placeMob(pos, isNorth, remoteAttackMobs[0]);
-    iPlayer::PlacementResult result2 = placeMob(pos, isNorth, remoteAttackMobs[0]);
+    pos.y = posY - 4.5f; 
+    iPlayer::PlacementResult result1 = placeMob(pos, isNorth, bigCardPool[2]);
+    pos.x = posX;
+    pos.y = posY - 7.5f;
+    iPlayer::PlacementResult result2 = placeMob(pos, isNorth, bigCardPool[1]);
+    std::vector <iEntityStats::MobType> mts;
+    mts.push_back(bigCardPool[0]);
+    mts.push_back(bigCardPool[2]);
+    mts.push_back(bigCardPool[1]);
+    speaker(NULL, mts, isNorth);
     if (result0 == 0 && result1 == 0 && result2 == 0) {
         return true;
     }
@@ -299,6 +326,11 @@ int Controller_AI_JiaqiangGuo::chooseCardBasedOnStrategy(mobsData* finalPriority
     std::map<combatStrategyCatagory, strategies>::iterator iter;
     std::vector<int> cardScore(4, 0);
     for (iter = finalPriorityMob->sts.begin(); iter != finalPriorityMob->sts.end(); iter++) {
+        //the first priority is TargetAirOrGround
+        //because use a mob which target ground unit to combat with a enemy mob which is an air unit is stupid
+        //the second priority is TroopOrIndividual
+        //the third priority is AOEOrSingle
+        //the fourth and fifth are  MeleeOrRemote GroundOrAir
         if (iter->first == MeleeOrRemote) {
             for (int i = 0; i < currentCardPool.size(); i++) {
                 if (iter->second == MeleeAttack) {
@@ -341,6 +373,64 @@ iEntityStats::MobType Controller_AI_JiaqiangGuo::combinationStrategy(std::vector
     else return mobCombineWith;
 }
 
+void Controller_AI_JiaqiangGuo::speaker(mobsData* finalPriorityMob, std::vector<iEntityStats::MobType> theMobsWillPlace,bool isNorth) {
+    std::cout << "*********************************************************************************************************************************\n";
+    std::string myPlace = "";
+    std::string enemyPlace = "";
+    if (isNorth) {
+        myPlace = "Northern AI";
+        enemyPlace = "Southern AI";
+    }
+    else {
+        myPlace = "Southern AI";
+        enemyPlace = "Northern AI";
+    }
+    if (finalPriorityMob) {
+        std::cout << "Now the priority target is " << enemyPlace << "'s " << finalPriorityMob->data.m_Stats.getName()<<".\n";
+        std::cout << myPlace << " wants to use ";
+        for (int i = 0; i < theMobsWillPlace.size(); i++) {
+            if (i == 0)
+            {
+                std::cout << iEntityStats::getStats(theMobsWillPlace[i]).getName() << " combining with ";
+            }
+            else if (i != theMobsWillPlace.size() - 1 ) {
+                std::cout << iEntityStats::getStats(theMobsWillPlace[i]).getName() << " and ";
+            }
+            else {
+                std::cout << iEntityStats::getStats(theMobsWillPlace[i]).getName();
+            }
+        }
+
+
+        std::cout << " to combat with " << enemyPlace << "'s " << finalPriorityMob->data.m_Stats.getName() << ".\n";
+        std::cout << "The " << myPlace << " think this strategies can take the adavantages.\n";
+        std::cout << "Because";
+        for (std::map<combatStrategyCatagory, strategies>::iterator iter = finalPriorityMob->sts.begin(); iter != finalPriorityMob->sts.end(); iter++) {
+            if (iter->second == strategies::MeleeAttack) {
+                std::cout << " melee attack overcome the ranged in short distance.\n";
+            }
+            else if (iter->second == strategies::RemoteAttack) {
+                std::cout << " remote attack overcome the melee in long distance and best combine with the melee.\n";
+            }
+        }
+    }
+    else {
+        std::cout << "Now the priority Target is " << enemyPlace << "'s tower." <<"\n";
+        std::cout << myPlace << " thinks the best strategy to attack " << enemyPlace << " is to use the combination of ";
+        for (int i = 0; i < theMobsWillPlace.size(); i++) {
+            if (i != theMobsWillPlace.size() - 1) {
+                std::cout << iEntityStats::getStats(theMobsWillPlace[i]).getName() << " and ";
+            }
+            else {
+                std::cout << iEntityStats::getStats(theMobsWillPlace[i]).getName()<<".\n";
+            }
+        }
+        std::cout << "Bacause this is a good way to attack the tower and take the advantages.\n";
+    }
+    std::cout << "*********************************************************************************************************************************\n";
+
+}
+
 void Controller_AI_JiaqiangGuo::chooseMeleeOrRemote(mobsData* enemyMob) {
     if (enemyMob->data.m_Stats.getDamageType() == iEntityStats::DamageType::Melee) {
         enemyMob->sts[MeleeOrRemote] = RemoteAttack;
@@ -349,3 +439,9 @@ void Controller_AI_JiaqiangGuo::chooseMeleeOrRemote(mobsData* enemyMob) {
         enemyMob->sts[MeleeOrRemote] = MeleeAttack;
     }
 }
+
+//becuase now there are no other tpyes of mobs ...
+//void Controller_AI_JiaqiangGuo::chooseAOEOrSingle() {}
+//void Controller_AI_JiaqiangGuo::chooseTargetAirOrGround() {}
+//...
+

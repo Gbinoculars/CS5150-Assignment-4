@@ -37,6 +37,18 @@ class Controller_AI_JiaqiangGuo : public iController
 
         void tick(float deltaTSec);
 
+    protected:
+
+        //the overall strategies
+        enum overallStrategies
+        {
+            TargetEnemyMobs,
+            SupportOurMobs,
+            Attacking,
+            WaitForElixirs,
+        };
+
+        //the types of units
         enum types {
             LeftTower,
             RightTower,
@@ -50,7 +62,7 @@ class Controller_AI_JiaqiangGuo : public iController
             GroundOrAir,
             AOEOrSingle,
             TargetAirOrGround,
-            TroopOrIndividual
+            TroopOrIndividual,
         };
 
         enum strategies
@@ -72,6 +84,7 @@ class Controller_AI_JiaqiangGuo : public iController
             Individual,
         };
 
+        //use these info to count the utility score.
         struct mobsData
         {
             mobsData() {};
@@ -88,6 +101,7 @@ class Controller_AI_JiaqiangGuo : public iController
                 mobsData newMob(mob.data, mob.utilityScore, mob.id,mob.type,mob.sts);
                 return newMob;
             };
+
             ~mobsData() {};
             iPlayer::EntityData data;
             float utilityScore;
@@ -95,35 +109,42 @@ class Controller_AI_JiaqiangGuo : public iController
             types type;
             std::map<combatStrategyCatagory, strategies> sts;
         };
-        
-        enum state
-        {
-            TargetEnemyMobs,
-            Attacking,
-            WaitForElixirs,
-        };
 
+        
         std::vector<mobsData> leftEnemyMobs;
         std::vector<mobsData> rightEnemyMobs;
         std::vector<mobsData> enemyBuildings;
         std::vector<int> alreadyAttakedMob;
+        
 
-        //your card pool
-        std::vector<iEntityStats::MobType> buildingAttackMobs = { iEntityStats::MobType::Giant };
-        std::vector<iEntityStats::MobType> remoteAttackMobs = { iEntityStats::MobType::Archer };;
-        std::vector<iEntityStats::MobType> meleeAttackMobs = { iEntityStats::MobType::Swordsman };
-        //AOEMobs, troops, airMobs, AOESpell and so on;
+        // card pool
+        std::vector<iEntityStats::MobType> bigCardPool = { iEntityStats::MobType::Giant , iEntityStats::MobType::Swordsman, iEntityStats::Archer};
 
+        //preset strategies
         bool placeMobStategy0(float posX, float posY, bool isNorth);
-        mobsData* findPriorityMob( mobsData* mobPriority);
-        Vec2 findBestPos(mobsData* enemyMob, iEntityStats::MobType theMobWantPlace);
+
+        //find the mob AI need to deal with first
+        mobsData* findPriorityMob( mobsData* mobPriority, bool isNorth);
+
+        //find the position on that our mob can take the most advantages
+        Vec2 findBestPos(mobsData* enemyMob, iEntityStats::MobType theMobWantPlace, bool isNorth);
+
         iPlayer::PlacementResult placeMob(Vec2 pos, bool isNorth, iEntityStats::MobType mt);
+
+        //calculate different strategies(see .h emun strategies) describe that the AI use which types of mob to attack enemyMob
         void chooseGroundOrAir();
         void chooseAOEOrSingle();
         void chooseTargetAirOrGround();
         void chooseTroopOrIndividual();
         void chooseMeleeOrRemote(mobsData* enemymobs);
-        iEntityStats::MobType combinationStrategy(std::vector<iEntityStats::MobType>currentCardPool, iEntityStats::MobType mobCombineWith, iEntityStats::MobType mt);
+
+        //find the mob from card pool that is most suitable to attack the most prioritized enemy mob based on strategies(see .h emun strategies). 
         int chooseCardBasedOnStrategy(mobsData* finalPriorityMob, std::vector<iEntityStats::MobType> currentCardPool,int cardIndex);
+
+        //the mob AI want to place need which types of mob to support, for example the archers need an tank help them take the damage.
+        iEntityStats::MobType combinationStrategy(std::vector<iEntityStats::MobType>currentCardPool, iEntityStats::MobType mobCombineWith, iEntityStats::MobType mt);
+
+        //explain what happend and why this decision was made.
+        void speaker(mobsData* finalPriorityMob, std::vector<iEntityStats::MobType> theMobsYouPlaced, bool isNorth);
         
 };
