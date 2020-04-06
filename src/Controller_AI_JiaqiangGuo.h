@@ -84,7 +84,7 @@ class Controller_AI_JiaqiangGuo : public iController
             Individual,
         };
 
-        //use these info to count the utility score.
+        //struct contain all info of the units
         struct mobsData
         {
             mobsData() {};
@@ -107,6 +107,8 @@ class Controller_AI_JiaqiangGuo : public iController
             float utilityScore;
             int id;
             types type;
+
+            //this map cantain what strategy suitable to combat with this unit
             std::map<combatStrategyCatagory, strategies> sts;
         };
 
